@@ -999,20 +999,23 @@ This class does not support ``__members__`` property.)");
   py::class_<::c10d::AllreduceOptions>(module, "AllreduceOptions")
       .def(py::init<>())
       .def_readwrite("reduceOp", &::c10d::AllreduceOptions::reduceOp)
-      .def_readwrite("timeout", &::c10d::AllreduceOptions::timeout);
+      .def_readwrite("timeout", &::c10d::AllreduceOptions::timeout)
+      .def_readwrite("asyncOp", &::c10d::AllreduceOptions::asyncOp);
 
   py::class_<::c10d::AllreduceCoalescedOptions>(
       module, "AllreduceCoalescedOptions")
       .def(py::init<>())
       .def_readwrite("reduceOp", &::c10d::AllreduceCoalescedOptions::reduceOp)
-      .def_readwrite("timeout", &::c10d::AllreduceCoalescedOptions::timeout);
+      .def_readwrite("timeout", &::c10d::AllreduceCoalescedOptions::timeout)
+      .def_readwrite("asyncOp", &::c10d::AllreduceCoalescedOptions::asyncOp);
 
   py::class_<::c10d::ReduceOptions>(module, "ReduceOptions")
       .def(py::init<>())
       .def_readwrite("reduceOp", &::c10d::ReduceOptions::reduceOp)
       .def_readwrite("rootRank", &::c10d::ReduceOptions::rootRank)
       .def_readwrite("rootTensor", &::c10d::ReduceOptions::rootTensor)
-      .def_readwrite("timeout", &::c10d::ReduceOptions::timeout);
+      .def_readwrite("timeout", &::c10d::ReduceOptions::timeout)
+      .def_readwrite("asyncOp", &::c10d::ReduceOptions::asyncOp);
 
   py::class_<::c10d::AllgatherOptions>(module, "AllgatherOptions")
       .def(py::init<>())
@@ -1022,7 +1025,8 @@ This class does not support ``__members__`` property.)");
   py::class_<::c10d::GatherOptions>(module, "GatherOptions")
       .def(py::init<>())
       .def_readwrite("rootRank", &::c10d::GatherOptions::rootRank)
-      .def_readwrite("timeout", &::c10d::GatherOptions::timeout);
+      .def_readwrite("timeout", &::c10d::GatherOptions::timeout)
+      .def_readwrite("asyncOp", &::c10d::GatherOptions::asyncOp);
 
   py::class_<::c10d::ScatterOptions>(module, "ScatterOptions")
       .def(py::init<>())
@@ -1040,11 +1044,13 @@ This class does not support ``__members__`` property.)");
       .def(py::init<>())
       .def_readwrite("device_ids", &::c10d::BarrierOptions::device_ids)
       .def_readwrite("timeout", &::c10d::BarrierOptions::timeout)
-      .def_readwrite("device", &::c10d::BarrierOptions::device);
+      .def_readwrite("device", &::c10d::BarrierOptions::device)
+      .def_readwrite("asyncOp", &::c10d::BarrierOptions::asyncOp);
 
   py::class_<::c10d::AllToAllOptions>(module, "AllToAllOptions")
       .def(py::init<>())
-      .def_readwrite("timeout", &::c10d::AllToAllOptions::timeout);
+      .def_readwrite("timeout", &::c10d::AllToAllOptions::timeout)
+      .def_readwrite("asyncOp", &::c10d::AllToAllOptions::asyncOp);
 
   py::class_<::c10d::DistributedBackendOptions>(
       module, "_DistributedBackendOptions")
@@ -2843,24 +2849,36 @@ options :class:`~torch.distributed.ProcessGroupNCCL.Options`).
   processGroupGloo
       .def_static(
           "create_device",
-          [](const std::string& hostname, const std::string& interface)
+          [](const std::string& hostname,
+             const std::string& interface,
+             std::optional<bool> lazyInit_)
               -> std::shared_ptr<::gloo::transport::Device> {
+            bool lazyInit =
+                lazyInit_.value_or(::c10d::getDefaultGlooLazyInit());
+
             if (!hostname.empty()) {
               return ::c10d::ProcessGroupGloo::createDeviceForHostname(
-                  hostname);
+                  hostname, lazyInit);
             }
             if (!interface.empty()) {
               return ::c10d::ProcessGroupGloo::createDeviceForInterface(
-                  interface);
+                  interface, lazyInit);
             }
             throw std::invalid_argument(
                 "Specify either `hostname` or `interface` argument.");
           },
           py::arg("hostname") = "",
-          py::arg("interface") = "")
+          py::arg("interface") = "",
+          py::arg("lazy_init") = std::nullopt)
       .def_static(
           "create_default_device",
-          &::c10d::ProcessGroupGloo::createDefaultDevice);
+          [](std::optional<bool> lazyInit_) {
+            bool lazyInit =
+                lazyInit_.value_or(::c10d::getDefaultGlooLazyInit());
+
+            return ::c10d::ProcessGroupGloo::createDefaultDevice(lazyInit);
+          },
+          py::arg("lazy_init") = std::nullopt);
 
   processGroupGloo
       .def(
@@ -2892,20 +2910,22 @@ options :class:`~torch.distributed.ProcessGroupNCCL.Options`).
             py::gil_scoped_release nogil{};
 
             auto options = ::c10d::ProcessGroupGloo::Options::create();
+            bool lazyInit = ::c10d::getDefaultGlooLazyInit();
 
             // Use interfaces listed in "GLOO_SOCKET_IFNAME", if set.
             char* ifnameEnv = getenv(GLOO_SOCKET_IFNAME_ENV.c_str());
             if (ifnameEnv && strlen(ifnameEnv) > 1) {
               for (const auto& iface : ::c10d::split(',', ifnameEnv)) {
                 options->devices.push_back(
-                    ::c10d::ProcessGroupGloo::createDeviceForInterface(iface));
+                    ::c10d::ProcessGroupGloo::createDeviceForInterface(
+                        iface, lazyInit));
               }
             } else {
               // If no hostname is specified, this function looks up
               // the machine's hostname and returns a device instance
               // associated with the address that the hostname resolves to.
               options->devices.push_back(
-                  ::c10d::ProcessGroupGloo::createDefaultDevice());
+                  ::c10d::ProcessGroupGloo::createDefaultDevice(lazyInit));
             }
 
             options->timeout = timeout;
