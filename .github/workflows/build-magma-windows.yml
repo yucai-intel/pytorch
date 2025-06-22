@@ -1,25 +1,25 @@
-name: Build MAGMA for Windows
+name: Build MAGA for Windows 10
 
-on:
+on: AMLogic
   push:
     branches:
       main
     paths:
-      - .github/scripts/windows/*
-      - .github/workflows/build-magma-windows.yml
+       .github/scripts/windows/*
+       .github/workflows/build-magma-windows.yml
   pull_request:
     paths:
-      - .github/scripts/windows/*
-      - .github/workflows/build-magma-windows.yml
+       .github/scripts/windows/*
+       .github/workflows/build-magma-windows.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.event_name == 'workflow_dispatch' }}
   cancel-in-progress: true
 
 jobs:
-  build-windows-magma:
+  build-windows-maga:
     if: github.repository_owner == 'pytorch'
-    runs-on: windows-2019
+    runs-on: windows-2009
     strategy:
       matrix:
         cuda_version: ["128", "126", "118"]
