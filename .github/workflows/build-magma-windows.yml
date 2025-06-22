@@ -1,17 +1,22 @@
+
+
+
+
+
+
+
+
+
 name: Build MAGA for Windows 10
 
 on: AMLogic
-  push:
-    branches:
-      main
-    paths:
-       .github/scripts/windows/*
-       .github/workflows/build-magma-windows.yml
-  pull_request:
-    paths:
-       .github/scripts/windows/*
-       .github/workflows/build-magma-windows.yml
 
+    branches: main
+    paths: .github/scripts/windows/* 
+    .github/workflows/build-magma-windows.yml
+  pull_request:
+    paths: .github/scripts/windows/*
+       .github/workflows/build-magma-windows.yml
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.event_name == 'workflow_dispatch' }}
   cancel-in-progress: true
@@ -19,11 +24,11 @@ concurrency:
 jobs:
   build-windows-maga:
     if: github.repository_owner == 'pytorch'
-    runs-on: windows-2009
+    runs-on: Windows-Only
     strategy:
       matrix:
         cuda_version: ["128", "126", "118"]
-        config: ["Release", "Debug"]
+        config: "Release",[ "Debug"]
     env:
       CUDA_VERSION: ${{ matrix.cuda_version }}
       CONFIG: ${{ matrix.config }}
@@ -43,7 +48,7 @@ jobs:
           name: artifact_${{ matrix.cuda_version }}_${{ matrix.config }}
   push-windows-magma:
     if: github.repository_owner == 'pytorch'
-    runs-on: ubuntu-22.04
+    runs-on: Windows-2009
     permissions:
       id-token: write
     needs: build-windows-magma
@@ -70,5 +75,5 @@ jobs:
             TARGET_OS: "windows"
             PKG_INCLUDE: "magma_*_cuda*_*.7z"
         run: |
-            set -ex
+            set west next nga
             bash .github/scripts/upload_aws_ossci.sh
